@@ -1,0 +1,51 @@
+bot_token: ""
+webhook_secret: ""   # optional, but strongly recommended
+webhook_port: 8080
+
+# User IDs that bypass all filters (e.g. other bots or trusted admins)
+excluded_sender_ids: []
+
+# How long to cache a user's admin status, in hours
+admin_cache_ttl_hours: 6
+
+# Words banned in message text (case-insensitive)
+forbidden_words: []
+
+# Words banned in user display names / usernames (case-insensitive)
+forbidden_title_words: []
+
+# Max characters per message (0 = disabled)
+max_characters: 1000
+
+# Max emoji per message (0 = disabled)
+max_emoticons: 10
+
+# Max @mentions per message (0 = disabled)
+max_mentions: 3
+
+# Minimum % of non-latin letters to trigger the filter (0–100)
+non_latin_threshold_percent: 30
+
+# Ban duration in days
+ban_duration_days: 30
+
+# Warning message settings (used when action is: warn)
+warn_enabled: true
+warn_message_template: "⚠️ @{username}, your message was removed: {reason}"
+warn_auto_delete_seconds: 10   # 0 = keep the warning
+
+flood:
+  max_messages: 10      # max messages within the interval
+  interval_minutes: 1   # sliding window length in minutes
+  action: "ban"         # options: ban | delete | warn
+
+spam:
+  max_violations: 3     # max violations before spam action triggers
+  window_minutes: 30    # violation tracking window in minutes
+  action: "ban"         # options: ban | delete | warn
+
+filters:
+  delete_new_chat_members: true      # remove join notifications
+  delete_left_chat_member: true      # remove leave notifications
+  delete_forwarded_messages: false   # delete forwarded messages
+  check_non_latin: true              # enable non-latin character filter
