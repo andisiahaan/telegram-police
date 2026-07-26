@@ -2,6 +2,7 @@ package action
 
 import (
 	"log/slog"
+	"sync"
 
 	"github.com/andisiahaan/telegram-police/internal/botctx"
 	"github.com/andisiahaan/telegram-police/internal/ratelimit"
@@ -17,11 +18,11 @@ type Resolver struct {
 }
 
 // NewResolver creates a Resolver with all required dependencies.
-func NewResolver(api *telegram.API, spamChecker *ratelimit.SpamChecker) *Resolver {
+func NewResolver(api *telegram.API, spamChecker *ratelimit.SpamChecker, wg *sync.WaitGroup) *Resolver {
 	return &Resolver{
 		deleteAction: NewDeleteAction(api),
 		banAction:    NewBanAction(api),
-		warnAction:   NewWarnAction(api),
+		warnAction:   NewWarnAction(api, wg),
 		spamChecker:  spamChecker,
 	}
 }

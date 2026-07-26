@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/andisiahaan/telegram-police/internal/telegram"
 )
@@ -13,13 +14,15 @@ import (
 type WebhookHandler struct {
 	dispatcher *Dispatcher
 	secret     string
+	wg         *sync.WaitGroup
 }
 
 // NewWebhookHandler creates a WebhookHandler.
-func NewWebhookHandler(dispatcher *Dispatcher, secret string) *WebhookHandler {
+func NewWebhookHandler(dispatcher *Dispatcher, secret string, wg *sync.WaitGroup) *WebhookHandler {
 	return &WebhookHandler{
 		dispatcher: dispatcher,
 		secret:     secret,
+		wg:         wg,
 	}
 }
 
@@ -55,28 +58,21 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := h.dispatcher.Dispatch(&update)
-
+	// Respond immediately so Telegram doesn't time out and retry.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	resp := map[string]interface{}{
-		"status": "ok",
-	}
-	if ctx != nil {
-		if ctx.Bypassed {
-			resp["bypassed"] = true
-			resp["message"] = ctx.BypassReason
-		}
-		if len(ctx.Violations) > 0 {
-			resp["violations"] = ctx.Violations
-		}
-		if len(ctx.ExecutedActions) > 0 {
-			resp["executed_actions"] = ctx.ExecutedActions
-		}
-	}
-
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
 		slog.Error("webhook: failed to write json response", "error", err)
 	}
+
+	// Dispatch asynchronously
+	if h.wg != nil {
+		h.wg.Add(1)
+	}
+	go func(u telegram.Update) {
+		if h.wg != nil {
+			defer h.wg.Done()
+		}
+		h.dispatcher.Dispatch(&u)
+	}(update)
 }

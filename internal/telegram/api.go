@@ -69,3 +69,40 @@ func (a *API) SendMessage(chatID int64, text string) (int, error) {
 	}
 	return msg.MessageID, nil
 }
+// GetUpdates fetches pending updates from Telegram using long-polling.
+// offset should be the last update_id+1 to acknowledge previous updates.
+// timeout is the long-poll wait in seconds (Telegram recommends 20–60).
+func (a *API) GetUpdates(offset, timeout int) ([]Update, error) {
+	result, err := a.client.Do("getUpdates", map[string]any{
+		"offset":  offset,
+		"timeout": timeout,
+		"limit":   100,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var updates []Update
+	if err := json.Unmarshal(result, &updates); err != nil {
+		return nil, fmt.Errorf("telegram api: getUpdates unmarshal: %w", err)
+	}
+	return updates, nil
+}
+
+// DeleteWebhook removes the current webhook integration.
+func (a *API) DeleteWebhook() error {
+	_, err := a.client.Do("deleteWebhook", map[string]any{})
+	return err
+}
+
+// SetWebhook registers the webhook URL with Telegram.
+func (a *API) SetWebhook(url, secretToken string) error {
+	params := map[string]any{
+		"url": url,
+	}
+	if secretToken != "" {
+		params["secret_token"] = secretToken
+	}
+	_, err := a.client.Do("setWebhook", params)
+	return err
+}

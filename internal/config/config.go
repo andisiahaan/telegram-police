@@ -13,6 +13,8 @@ import (
 // Config holds the full bot configuration.
 type Config struct {
 	BotToken      string `yaml:"bot_token"`
+	BotMode       string `yaml:"bot_mode"`       // "webhook" (default) or "poll"
+	WebhookURL    string `yaml:"webhook_url"`    // The public URL to register with Telegram
 	WebhookSecret string `yaml:"webhook_secret"`
 	WebhookPort   int    `yaml:"webhook_port"`
 
@@ -94,6 +96,12 @@ func Load(path string) (*Config, error) {
 func overrideFromEnv(cfg *Config) {
 	if v := os.Getenv("BOT_TOKEN"); v != "" {
 		cfg.BotToken = v
+	}
+	if v := os.Getenv("BOT_MODE"); v != "" {
+		cfg.BotMode = v
+	}
+	if v := os.Getenv("WEBHOOK_URL"); v != "" {
+		cfg.WebhookURL = v
 	}
 	if v := os.Getenv("WEBHOOK_SECRET"); v != "" {
 		cfg.WebhookSecret = v

@@ -4,7 +4,8 @@ A self-hosted Telegram bot for filtering messages in group chats. Written in Go,
 
 ## Features
 
-- **Webhook mode** — no polling, lightweight and fast
+- **Dual Mode (Webhook & Poll)** — seamlessly switch between lightweight webhooks for production or long-polling for local development.
+- **Auto-webhook Registration** — the bot handles its own Telegram webhook registration and deletion based on the chosen mode.
 - **Modular** — each filter can be toggled on/off via config
 - **No external database** — all state lives in in-memory cache
 - **Dual config** — configure via `config.yaml` or environment variables (env overrides yaml)
@@ -17,19 +18,11 @@ A self-hosted Telegram bot for filtering messages in group chats. Written in Go,
 ## Requirements
 
 - Go 1.22+
-- A public HTTPS domain for the webhook (or use ngrok for local development)
+- *(Optional)* A public HTTPS domain if using webhook mode
 
 ---
 
-## Webhook Setup
 
-Once the bot is running, register the webhook with Telegram:
-
-```bash
-curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-  -d "url=https://yourdomain.com/webhook" \
-  -d "secret_token=YOUR_WEBHOOK_SECRET"
-```
 
 ---
 
@@ -45,6 +38,8 @@ Edit `config.yaml`:
 
 ```yaml
 bot_token: "123456:ABC-DEF..."
+bot_mode: "webhook" # or "poll"
+webhook_url: "https://yourdomain.com/webhook" # auto-registered
 webhook_secret: "your-secret-here"
 webhook_port: 8080
 ```
@@ -66,6 +61,8 @@ Environment variables **override** values from `config.yaml`.
 | Config YAML | Env Variable | Default | Description |
 |---|---|---|---|
 | `bot_token` | `BOT_TOKEN` | *(required)* | Telegram bot token |
+| `bot_mode` | `BOT_MODE` | `"webhook"` | Bot operation mode (`webhook` or `poll`) |
+| `webhook_url` | `WEBHOOK_URL` | `""` | Public URL for Telegram to send updates |
 | `webhook_secret` | `WEBHOOK_SECRET` | `""` | Secret token for webhook validation |
 | `webhook_port` | `WEBHOOK_PORT` | `8080` | HTTP server port |
 | `excluded_sender_ids` | `EXCLUDED_SENDER_IDS` | `[]` | User IDs exempt from all filters (comma-separated in env) |

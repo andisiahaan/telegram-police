@@ -17,10 +17,32 @@ type SlidingWindow struct {
 
 // NewSlidingWindow creates a SlidingWindow with the given limit and window size.
 func NewSlidingWindow(maxCount int, interval time.Duration) *SlidingWindow {
-	return &SlidingWindow{
+	sw := &SlidingWindow{
 		entries:  make(map[string][]time.Time),
 		maxCount: maxCount,
 		interval: interval,
+	}
+	
+	// Start a background cleaner to prevent memory leaks for inactive users.
+	go sw.cleanupLoop()
+	return sw
+}
+
+// cleanupLoop periodically removes expired timestamps and deletes empty keys.
+func (sw *SlidingWindow) cleanupLoop() {
+	ticker := time.NewTicker(sw.interval)
+	for {
+		now := <-ticker.C
+		sw.mu.Lock()
+		for k, times := range sw.entries {
+			pruned := prune(times, now, sw.interval)
+			if len(pruned) == 0 {
+				delete(sw.entries, k)
+			} else {
+				sw.entries[k] = pruned
+			}
+		}
+		sw.mu.Unlock()
 	}
 }
 

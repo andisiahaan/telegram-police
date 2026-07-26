@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/andisiahaan/telegram-police/internal/botctx"
@@ -13,11 +14,12 @@ import (
 // WarnAction sends a warning message to the chat, optionally auto-deleting it after a delay.
 type WarnAction struct {
 	api *telegram.API
+	wg  *sync.WaitGroup
 }
 
 // NewWarnAction creates a WarnAction.
-func NewWarnAction(api *telegram.API) *WarnAction {
-	return &WarnAction{api: api}
+func NewWarnAction(api *telegram.API, wg *sync.WaitGroup) *WarnAction {
+	return &WarnAction{api: api, wg: wg}
 }
 
 func (a *WarnAction) Name() string { return "warn" }
@@ -47,7 +49,13 @@ func (a *WarnAction) Execute(ctx *botctx.Context) error {
 	)
 
 	if cfg.WarnAutoDeleteSeconds > 0 {
+		if a.wg != nil {
+			a.wg.Add(1)
+		}
 		go func(chatID int64, warnMsgID int, delay int) {
+			if a.wg != nil {
+				defer a.wg.Done()
+			}
 			time.Sleep(time.Duration(delay) * time.Second)
 			if delErr := a.api.DeleteMessage(chatID, warnMsgID); delErr != nil {
 				slog.Error("failed to auto-delete warning message",

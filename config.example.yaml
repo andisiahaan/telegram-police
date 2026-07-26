@@ -1,4 +1,6 @@
 bot_token: ""
+bot_mode: "webhook"   # "webhook" (production) or "poll" (local dev / no public HTTPS)
+webhook_url: ""       # e.g., "https://yourdomain.com/webhook" (auto-registers if set)
 webhook_secret: ""   # optional, but strongly recommended
 webhook_port: 8080
 

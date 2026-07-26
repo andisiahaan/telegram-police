@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -27,6 +29,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	slog.Info("starting telepolice", "mode", cfg.BotMode)
+
 	// 2. Core dependencies
 	cacheStore := cache.New(
 		time.Duration(cfg.AdminCacheTTLHours)*time.Hour,
@@ -48,31 +52,59 @@ func main() {
 		&filter.NonLatinFilter{},
 		&filter.EmoticonFilter{},
 		&filter.MentionFilter{},
-		&filter.ForbiddenWordsFilter{},
+		filter.NewForbiddenWordsFilter(cfg.ForbiddenWords),
 		&filter.UserTitleFilter{},
 	}
 
-	// 5. Gate, resolver, pipeline
+	// 5. WaitGroup for background tasks
+	var wg sync.WaitGroup
+
+	// 6. Gate, resolver, pipeline, dispatcher
 	g := gate.New(cacheStore, tgAPI)
-	resolver := action.NewResolver(tgAPI, spamChecker)
+	resolver := action.NewResolver(tgAPI, spamChecker, &wg)
 	pl := pipeline.New(g, floodChecker, filters, resolver, cfg)
-
-	// 6. HTTP handler
 	dispatcher := handler.NewDispatcher(pl, cfg)
-	webhookHandler := handler.NewWebhookHandler(dispatcher, cfg.WebhookSecret)
 
-	// 7. Server + graceful shutdown on SIGINT / SIGTERM
-	srv := server.New(cfg.WebhookPort, webhookHandler)
+	// 7. Listen for OS shutdown signals
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	go func() {
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-		<-quit
-		srv.Shutdown()
-	}()
+	switch cfg.BotMode {
+	case "poll":
+		slog.Info("removing webhook (if any) to enable polling")
+		if err := tgAPI.DeleteWebhook(); err != nil {
+			slog.Warn("failed to delete webhook (safe to ignore if not set)", "error", err)
+		}
 
-	if err := srv.Start(); err != nil {
-		slog.Error("server exited with error", "error", err)
-		os.Exit(1)
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			<-quit
+			cancel()
+			wg.Wait()
+			slog.Info("all background tasks finished")
+		}()
+		handler.NewPoller(dispatcher, tgAPI, &wg).Start(ctx)
+
+	default: // "webhook"
+		if cfg.WebhookURL != "" {
+			slog.Info("registering webhook", "url", cfg.WebhookURL)
+			if err := tgAPI.SetWebhook(cfg.WebhookURL, cfg.WebhookSecret); err != nil {
+				slog.Error("failed to set webhook", "error", err)
+				os.Exit(1)
+			}
+		}
+
+		webhookHandler := handler.NewWebhookHandler(dispatcher, cfg.WebhookSecret, &wg)
+		srv := server.New(cfg.WebhookPort, webhookHandler)
+		go func() {
+			<-quit
+			srv.Shutdown()
+			wg.Wait()
+			slog.Info("all background tasks finished")
+		}()
+		if err := srv.Start(); err != nil {
+			slog.Error("server exited with error", "error", err)
+			os.Exit(1)
+		}
 	}
 }

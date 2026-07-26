@@ -2,6 +2,9 @@ package config
 
 // applyDefaults fills in zero-value fields with sensible defaults.
 func applyDefaults(cfg *Config) {
+	if cfg.BotMode == "" {
+		cfg.BotMode = "webhook"
+	}
 	if cfg.WebhookPort == 0 {
 		cfg.WebhookPort = 8080
 	}
