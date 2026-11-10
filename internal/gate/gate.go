@@ -24,10 +24,16 @@ func New(cacheStore *cache.Store, api *telegram.API) *Gate {
 }
 
 // ShouldBypass returns true if the message should be left alone.
-// Two conditions trigger a bypass:
-//  1. The sender is in ExcludedSenderIDs
-//  2. The sender is an admin or creator in this chat
+// Bypass conditions:
+//  1. The chat is a private chat (not a group)
+//  2. The sender is in ExcludedSenderIDs
+//  3. The sender is an admin or creator in this chat
 func (g *Gate) ShouldBypass(ctx *botctx.Context) bool {
+	if ctx.IsPrivateChat() {
+		ctx.Bypassed = true
+		ctx.BypassReason = "Private chat is not subject to group moderation"
+		return true
+	}
 	if g.isExcluded(ctx) {
 		ctx.Bypassed = true
 		ctx.BypassReason = "User is in excluded senders list"

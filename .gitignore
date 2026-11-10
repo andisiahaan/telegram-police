@@ -28,3 +28,4 @@ config.yaml
 
 # MacOS
 .DS_Store
+self-guides.md

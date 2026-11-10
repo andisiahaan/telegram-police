@@ -63,7 +63,7 @@ func main() {
 	g := gate.New(cacheStore, tgAPI)
 	resolver := action.NewResolver(tgAPI, spamChecker, &wg)
 	pl := pipeline.New(g, floodChecker, filters, resolver, cfg)
-	dispatcher := handler.NewDispatcher(pl, cfg)
+	dispatcher := handler.NewDispatcher(pl, tgAPI, cfg)
 
 	// 7. Listen for OS shutdown signals
 	quit := make(chan os.Signal, 1)

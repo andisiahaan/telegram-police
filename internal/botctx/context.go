@@ -11,8 +11,9 @@ import (
 type Context struct {
 	Update     *telegram.Update
 	Config     *config.Config
-	ChatID     int64
-	UserID     int64
+	ChatID          int64
+	ChatType        string
+	UserID          int64
 	Username   string
 	MessageID       int
 	Violations      []string // collected by the filter chain; empty means no violations
@@ -35,6 +36,7 @@ func New(update *telegram.Update, cfg *config.Config) *Context {
 		ctx.MessageID = update.Message.MessageID
 		if update.Message.Chat != nil {
 			ctx.ChatID = update.Message.Chat.ID
+			ctx.ChatType = update.Message.Chat.Type
 		}
 		if update.Message.From != nil {
 			ctx.UserID = update.Message.From.ID
@@ -61,4 +63,9 @@ func (c *Context) HasViolations() bool {
 // AddAction appends an action name to the executed actions list.
 func (c *Context) AddAction(action string) {
 	c.ExecutedActions = append(c.ExecutedActions, action)
+}
+
+// IsPrivateChat reports whether the message was sent in a direct private chat with the bot.
+func (c *Context) IsPrivateChat() bool {
+	return c.ChatType == "private"
 }
