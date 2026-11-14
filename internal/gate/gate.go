@@ -6,6 +6,7 @@ import (
 
 	"github.com/andisiahaan/telegram-police/internal/botctx"
 	"github.com/andisiahaan/telegram-police/internal/cache"
+	"github.com/andisiahaan/telegram-police/internal/store"
 	"github.com/andisiahaan/telegram-police/internal/telegram"
 )
 
@@ -13,13 +14,15 @@ import (
 type Gate struct {
 	cacheStore *cache.Store
 	api        *telegram.API
+	store      *store.Store
 }
 
 // New creates a Gate.
-func New(cacheStore *cache.Store, api *telegram.API) *Gate {
+func New(cacheStore *cache.Store, api *telegram.API, store *store.Store) *Gate {
 	return &Gate{
 		cacheStore: cacheStore,
 		api:        api,
+		store:      store,
 	}
 }
 
@@ -48,6 +51,9 @@ func (g *Gate) ShouldBypass(ctx *botctx.Context) bool {
 }
 
 func (g *Gate) isExcluded(ctx *botctx.Context) bool {
+	if g.store != nil && g.store.IsWhitelisted(ctx.UserID) {
+		return true
+	}
 	for _, id := range ctx.Config.ExcludedSenderIDs {
 		if id == ctx.UserID {
 			return true

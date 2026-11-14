@@ -2,30 +2,31 @@ package handler
 
 import (
 	"testing"
+
+	"github.com/andisiahaan/telegram-police/internal/botctx"
 )
 
-func TestIsStatusCommand(t *testing.T) {
+func TestHandlePrivateChatNonPrivate(t *testing.T) {
+	d := &Dispatcher{}
+
 	tests := []struct {
-		input    string
-		expected bool
+		name     string
+		chatType string
 	}{
-		{"/ping", true},
-		{"/ping@telepolice_bot", true},
-		{"/status", true},
-		{"/status@telepolice_bot", true},
-		{"/start", true},
-		{"/start@telepolice_bot", true},
-		{"/help", false},
-		{"halo", false},
-		{"ping", false},
-		{"", false},
+		{"group chat", "group"},
+		{"supergroup chat", "supergroup"},
+		{"channel", "channel"},
 	}
 
 	for _, tt := range tests {
-		got := isStatusCommand(tt.input)
-		if got != tt.expected {
-			t.Errorf("isStatusCommand(%q) = %v; want %v", tt.input, got, tt.expected)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &botctx.Context{
+				ChatType: tt.chatType,
+			}
+			handled := d.handlePrivateChat(ctx)
+			if handled {
+				t.Errorf("handlePrivateChat should return false for %s, got true", tt.chatType)
+			}
+		})
 	}
 }
-

@@ -15,10 +15,23 @@ type Server struct {
 	httpServer *http.Server
 }
 
-// New creates a Server that listens on the given port and registers /webhook.
-func New(port int, handler http.Handler) *Server {
+// New creates a Server that listens on the given port and registers webhook (if provided) and admin routes.
+func New(port int, webhookHandler http.Handler, adminHandler http.Handler) *Server {
 	mux := http.NewServeMux()
-	mux.Handle("/webhook", handler)
+	if webhookHandler != nil {
+		mux.Handle("/webhook", webhookHandler)
+	}
+	if adminHandler != nil {
+		mux.Handle("/admin", adminHandler)
+		mux.Handle("/admin/", adminHandler)
+	}
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/admin", http.StatusSeeOther)
+			return
+		}
+		http.NotFound(w, r)
+	})
 
 	return &Server{
 		httpServer: &http.Server{

@@ -13,7 +13,7 @@ func TestForbiddenWordsFilter(t *testing.T) {
 		ForbiddenWords: []string{"badword", "c++"},
 	}
 
-	filter := NewForbiddenWordsFilter(cfg.ForbiddenWords)
+	filter := NewStaticForbiddenWordsFilter(cfg.ForbiddenWords)
 
 	tests := []struct {
 		name     string

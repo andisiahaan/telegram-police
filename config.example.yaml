@@ -3,6 +3,8 @@ bot_mode: "webhook"   # "webhook" (production) or "poll" (local dev / no public 
 webhook_url: ""       # e.g., "https://yourdomain.com/webhook" (auto-registers if set)
 webhook_secret: ""   # optional, but strongly recommended
 webhook_port: 8080
+admin_pin: "123456"
+sqlite_path: "data/telepolice.db"
 
 # User IDs that bypass all filters (e.g. other bots or trusted admins)
 excluded_sender_ids: []

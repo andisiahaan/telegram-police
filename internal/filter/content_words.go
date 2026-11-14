@@ -7,15 +7,22 @@ import (
 
 	"github.com/andisiahaan/telegram-police/internal/botctx"
 	"github.com/andisiahaan/telegram-police/internal/config"
+	"github.com/andisiahaan/telegram-police/internal/store"
 )
 
 // ForbiddenWordsFilter rejects messages that contain any word on the blocklist.
 type ForbiddenWordsFilter struct {
-	regex *regexp.Regexp
+	store       *store.Store
+	staticRegex *regexp.Regexp
 }
 
-// NewForbiddenWordsFilter precompiles the forbidden words into a single regex.
-func NewForbiddenWordsFilter(words []string) *ForbiddenWordsFilter {
+// NewForbiddenWordsFilter creates a filter backed by the dynamic WordStore.
+func NewForbiddenWordsFilter(s *store.Store) *ForbiddenWordsFilter {
+	return &ForbiddenWordsFilter{store: s}
+}
+
+// NewStaticForbiddenWordsFilter creates a filter with static words (used for testing).
+func NewStaticForbiddenWordsFilter(words []string) *ForbiddenWordsFilter {
 	if len(words) == 0 {
 		return &ForbiddenWordsFilter{}
 	}
@@ -25,18 +32,29 @@ func NewForbiddenWordsFilter(words []string) *ForbiddenWordsFilter {
 	}
 	pattern := fmt.Sprintf(`(?i)(?:^|\W)(%s)(?:\W|$)`, strings.Join(escaped, "|"))
 	return &ForbiddenWordsFilter{
-		regex: regexp.MustCompile(pattern),
+		staticRegex: regexp.MustCompile(pattern),
 	}
 }
 
 func (f *ForbiddenWordsFilter) Name() string { return "forbidden_words" }
 
+func (f *ForbiddenWordsFilter) getRegex() *regexp.Regexp {
+	if f.store != nil {
+		return f.store.GetForbiddenRegex()
+	}
+	return f.staticRegex
+}
+
 func (f *ForbiddenWordsFilter) Enabled(cfg *config.Config) bool {
-	return f.regex != nil && len(cfg.ForbiddenWords) > 0
+	return f.getRegex() != nil
 }
 
 func (f *ForbiddenWordsFilter) Check(ctx *botctx.Context) (bool, string) {
-	if ctx.Update.Message == nil || f.regex == nil {
+	if ctx.Update.Message == nil {
+		return false, ""
+	}
+	regex := f.getRegex()
+	if regex == nil {
 		return false, ""
 	}
 	text := ctx.Update.Message.Text
@@ -44,7 +62,7 @@ func (f *ForbiddenWordsFilter) Check(ctx *botctx.Context) (bool, string) {
 		return false, ""
 	}
 
-	match := f.regex.FindStringSubmatch(text)
+	match := regex.FindStringSubmatch(text)
 	if match != nil && len(match) > 1 {
 		return true, fmt.Sprintf("contains forbidden word: %q", strings.ToLower(match[1]))
 	}

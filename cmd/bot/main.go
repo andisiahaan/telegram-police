@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/andisiahaan/telegram-police/internal/action"
+	"github.com/andisiahaan/telegram-police/internal/admin"
 	"github.com/andisiahaan/telegram-police/internal/cache"
 	"github.com/andisiahaan/telegram-police/internal/config"
 	"github.com/andisiahaan/telegram-police/internal/filter"
@@ -18,6 +19,7 @@ import (
 	"github.com/andisiahaan/telegram-police/internal/pipeline"
 	"github.com/andisiahaan/telegram-police/internal/ratelimit"
 	"github.com/andisiahaan/telegram-police/internal/server"
+	"github.com/andisiahaan/telegram-police/internal/store"
 	"github.com/andisiahaan/telegram-police/internal/telegram"
 )
 
@@ -31,7 +33,22 @@ func main() {
 
 	slog.Info("starting telepolice", "mode", cfg.BotMode)
 
-	// 2. Core dependencies
+	// 2. Persistent SQLite store & Admin handler
+	wordStore, err := store.New(
+		cfg.SQLitePath,
+		cfg.ForbiddenWords,
+		cfg.ForbiddenTitleWords,
+		cfg.ExcludedSenderIDs,
+	)
+	if err != nil {
+		slog.Error("failed to initialize sqlite store", "error", err)
+		os.Exit(1)
+	}
+	defer wordStore.Close()
+
+	adminHandler := admin.NewHandler(cfg.AdminPIN, wordStore)
+
+	// 3. Core dependencies
 	cacheStore := cache.New(
 		time.Duration(cfg.AdminCacheTTLHours)*time.Hour,
 		10*time.Minute,
@@ -39,11 +56,11 @@ func main() {
 	tgClient := telegram.NewClient(cfg.BotToken)
 	tgAPI := telegram.NewAPI(tgClient)
 
-	// 3. Rate limiters
+	// 4. Rate limiters
 	floodChecker := ratelimit.NewFloodChecker(cfg)
 	spamChecker := ratelimit.NewSpamChecker(cfg)
 
-	// 4. Filter chain
+	// 5. Filter chain
 	filters := []filter.Filter{
 		&filter.NewChatMembersFilter{},
 		&filter.LeftChatMemberFilter{},
@@ -52,20 +69,20 @@ func main() {
 		&filter.NonLatinFilter{},
 		&filter.EmoticonFilter{},
 		&filter.MentionFilter{},
-		filter.NewForbiddenWordsFilter(cfg.ForbiddenWords),
-		&filter.UserTitleFilter{},
+		filter.NewForbiddenWordsFilter(wordStore),
+		filter.NewUserTitleFilter(wordStore),
 	}
 
-	// 5. WaitGroup for background tasks
+	// 6. WaitGroup for background tasks
 	var wg sync.WaitGroup
 
-	// 6. Gate, resolver, pipeline, dispatcher
-	g := gate.New(cacheStore, tgAPI)
+	// 7. Gate, resolver, pipeline, dispatcher
+	g := gate.New(cacheStore, tgAPI, wordStore)
 	resolver := action.NewResolver(tgAPI, spamChecker, &wg)
 	pl := pipeline.New(g, floodChecker, filters, resolver, cfg)
 	dispatcher := handler.NewDispatcher(pl, tgAPI, cfg)
 
-	// 7. Listen for OS shutdown signals
+	// 8. Listen for OS shutdown signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -77,13 +94,20 @@ func main() {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		go handler.NewPoller(dispatcher, tgAPI, &wg).Start(ctx)
+
+		srv := server.New(cfg.WebhookPort, nil, adminHandler)
 		go func() {
 			<-quit
 			cancel()
+			srv.Shutdown()
 			wg.Wait()
 			slog.Info("all background tasks finished")
 		}()
-		handler.NewPoller(dispatcher, tgAPI, &wg).Start(ctx)
+		if err := srv.Start(); err != nil {
+			slog.Error("server exited with error", "error", err)
+			os.Exit(1)
+		}
 
 	default: // "webhook"
 		if cfg.WebhookURL != "" {
@@ -95,7 +119,7 @@ func main() {
 		}
 
 		webhookHandler := handler.NewWebhookHandler(dispatcher, cfg.WebhookSecret, &wg)
-		srv := server.New(cfg.WebhookPort, webhookHandler)
+		srv := server.New(cfg.WebhookPort, webhookHandler, adminHandler)
 		go func() {
 			<-quit
 			srv.Shutdown()

@@ -8,6 +8,12 @@ func applyDefaults(cfg *Config) {
 	if cfg.WebhookPort == 0 {
 		cfg.WebhookPort = 8080
 	}
+	if cfg.AdminPIN == "" {
+		cfg.AdminPIN = "123456"
+	}
+	if cfg.SQLitePath == "" {
+		cfg.SQLitePath = "data/telepolice.db"
+	}
 	if cfg.AdminCacheTTLHours == 0 {
 		cfg.AdminCacheTTLHours = 6
 	}

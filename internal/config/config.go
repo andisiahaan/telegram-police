@@ -17,6 +17,8 @@ type Config struct {
 	WebhookURL    string `yaml:"webhook_url"`    // The public URL to register with Telegram
 	WebhookSecret string `yaml:"webhook_secret"`
 	WebhookPort   int    `yaml:"webhook_port"`
+	AdminPIN      string `yaml:"admin_pin"`
+	SQLitePath    string `yaml:"sqlite_path"`
 
 	ExcludedSenderIDs        []int64  `yaml:"excluded_sender_ids"`
 	AdminCacheTTLHours       int      `yaml:"admin_cache_ttl_hours"`
@@ -108,6 +110,12 @@ func overrideFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("WEBHOOK_PORT"); v != "" {
 		cfg.WebhookPort = parseInt(v, cfg.WebhookPort)
+	}
+	if v := os.Getenv("ADMIN_PIN"); v != "" {
+		cfg.AdminPIN = v
+	}
+	if v := os.Getenv("SQLITE_PATH"); v != "" {
+		cfg.SQLitePath = v
 	}
 	if v := os.Getenv("EXCLUDED_SENDER_IDS"); v != "" {
 		cfg.ExcludedSenderIDs = parseInt64Slice(v)
