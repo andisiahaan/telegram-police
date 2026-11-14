@@ -14,7 +14,7 @@ import (
 type Config struct {
 	BotToken      string `yaml:"bot_token"`
 	BotMode       string `yaml:"bot_mode"`       // "webhook" (default) or "poll"
-	WebhookURL    string `yaml:"webhook_url"`    // The public URL to register with Telegram
+	AppURL        string `yaml:"app_url"`        // The base public URL of the application
 	WebhookSecret string `yaml:"webhook_secret"`
 	WebhookPort   int    `yaml:"webhook_port"`
 	AdminPIN      string `yaml:"admin_pin"`
@@ -102,8 +102,10 @@ func overrideFromEnv(cfg *Config) {
 	if v := os.Getenv("BOT_MODE"); v != "" {
 		cfg.BotMode = v
 	}
-	if v := os.Getenv("WEBHOOK_URL"); v != "" {
-		cfg.WebhookURL = v
+	if v := os.Getenv("APP_URL"); v != "" {
+		cfg.AppURL = v
+	} else if v := os.Getenv("WEBHOOK_URL"); v != "" {
+		cfg.AppURL = cleanBaseURL(v)
 	}
 	if v := os.Getenv("WEBHOOK_SECRET"); v != "" {
 		cfg.WebhookSecret = v
@@ -221,4 +223,30 @@ func parseInt64Slice(s string) []int64 {
 		}
 	}
 	return result
+}
+
+func cleanBaseURL(raw string) string {
+	u := strings.TrimSpace(raw)
+	u = strings.TrimRight(u, "/")
+	u = strings.TrimSuffix(u, "/webhook")
+	u = strings.TrimSuffix(u, "/admin")
+	return u
+}
+
+// WebhookURL returns the full webhook endpoint URL (AppURL + "/webhook").
+func (c *Config) WebhookURL() string {
+	base := cleanBaseURL(c.AppURL)
+	if base == "" {
+		return ""
+	}
+	return base + "/webhook"
+}
+
+// AdminURL returns the full admin dashboard URL (AppURL + "/admin").
+func (c *Config) AdminURL() string {
+	base := cleanBaseURL(c.AppURL)
+	if base == "" {
+		return "/admin"
+	}
+	return base + "/admin"
 }

@@ -104,15 +104,16 @@ func main() {
 			wg.Wait()
 			slog.Info("all background tasks finished")
 		}()
+		slog.Info("admin dashboard available", "url", cfg.AdminURL())
 		if err := srv.Start(); err != nil {
 			slog.Error("server exited with error", "error", err)
 			os.Exit(1)
 		}
 
 	default: // "webhook"
-		if cfg.WebhookURL != "" {
-			slog.Info("registering webhook", "url", cfg.WebhookURL)
-			if err := tgAPI.SetWebhook(cfg.WebhookURL, cfg.WebhookSecret); err != nil {
+		if webhookURL := cfg.WebhookURL(); webhookURL != "" {
+			slog.Info("registering webhook", "url", webhookURL)
+			if err := tgAPI.SetWebhook(webhookURL, cfg.WebhookSecret); err != nil {
 				slog.Error("failed to set webhook", "error", err)
 				os.Exit(1)
 			}
@@ -126,6 +127,7 @@ func main() {
 			wg.Wait()
 			slog.Info("all background tasks finished")
 		}()
+		slog.Info("admin dashboard available", "url", cfg.AdminURL())
 		if err := srv.Start(); err != nil {
 			slog.Error("server exited with error", "error", err)
 			os.Exit(1)

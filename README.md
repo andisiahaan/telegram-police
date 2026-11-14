@@ -39,7 +39,7 @@ Edit `config.yaml`:
 ```yaml
 bot_token: "123456:ABC-DEF..."
 bot_mode: "webhook" # or "poll"
-webhook_url: "https://yourdomain.com/webhook" # auto-registered
+app_url: "https://yourdomain.com" # auto-appends /webhook & /admin
 webhook_secret: "your-secret-here"
 webhook_port: 8080
 ```
@@ -62,7 +62,7 @@ Environment variables **override** values from `config.yaml`.
 |---|---|---|---|
 | `bot_token` | `BOT_TOKEN` | *(required)* | Telegram bot token |
 | `bot_mode` | `BOT_MODE` | `"webhook"` | Bot operation mode (`webhook` or `poll`) |
-| `webhook_url` | `WEBHOOK_URL` | `""` | Public URL for Telegram to send updates |
+| `app_url` | `APP_URL` | `""` | Base public URL (auto-appends `/webhook` and `/admin`) |
 | `webhook_secret` | `WEBHOOK_SECRET` | `""` | Secret token for webhook validation |
 | `webhook_port` | `WEBHOOK_PORT` | `8080` | HTTP server port |
 | `excluded_sender_ids` | `EXCLUDED_SENDER_IDS` | `[]` | User IDs exempt from all filters (comma-separated in env) |
